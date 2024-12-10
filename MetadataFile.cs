@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Data.SqlTypes;
 
 namespace MetaDataStringEditor {
     class MetadataFile : IDisposable {
@@ -20,32 +21,32 @@ namespace MetaDataStringEditor {
         public MetadataFile(string fullName) {
             reader = new BinaryReader(File.OpenRead(fullName));
 
-            // 读取文件
+            // Read File
             ReadHeader();
 
-            // 读取字符串
+            // Obtaining a String
             ReadLiteral();
             ReadStrByte();
 
-            Logger.I("基础读取完成");
+            Logger.I("File read complete");
         }
 
         private void ReadHeader() {
-            Logger.I("读取头部");
+            Logger.I("Read header");
             uint vansity = reader.ReadUInt32();
             if (vansity != 0xFAB11BAF) {
-                throw new Exception("标志检查不通过");
+                throw new Exception("Failed flag check");
             }
             int version = reader.ReadInt32();
-            stringLiteralOffset = reader.ReadUInt32();      // 列表区的位置，后面不会改了
-            stringLiteralCount = reader.ReadUInt32();       // 列表区的大小，后面不会改了
-            DataInfoPosition = reader.BaseStream.Position;  // 记一下当前位置，后面要用
-            stringLiteralDataOffset = reader.ReadUInt32();  // 数据区的位置，可能要改
-            stringLiteralDataCount = reader.ReadUInt32();   // 数据区的长度，可能要改
+            stringLiteralOffset = reader.ReadUInt32();      // The location of the list area will not be changed later
+            stringLiteralCount = reader.ReadUInt32();       // The size of the list area will not be changed later
+            DataInfoPosition = reader.BaseStream.Position;  // Make a note of the current position
+            stringLiteralDataOffset = reader.ReadUInt32();  // The location of the data area, which may have to be changed
+            stringLiteralDataCount = reader.ReadUInt32();   // The length of the data area, which may have to be changed
         }
 
         private void ReadLiteral() {
-            Logger.I("读取Literal");
+            Logger.I("Read literal");
             ProgressBar.SetMax((int)stringLiteralCount / 8);
 
             reader.BaseStream.Position = stringLiteralOffset;
@@ -59,7 +60,7 @@ namespace MetaDataStringEditor {
         }
 
         private void ReadStrByte() {
-            Logger.I("读取字符串的Bytes");
+            Logger.I("Read the string of the bytes");
             ProgressBar.SetMax(stringLiterals.Count);
 
             for (int i = 0; i < stringLiterals.Count; i++) {
@@ -72,12 +73,12 @@ namespace MetaDataStringEditor {
         public void WriteToNewFile(string fileName) {
             BinaryWriter writer = new BinaryWriter(File.Create(fileName));
 
-            // 先全部复制过去
+            // Let's copy everything.
             reader.BaseStream.Position = 0;
             reader.BaseStream.CopyTo(writer.BaseStream);
 
-            // 更新Literal
-            Logger.I("更新Literal");
+            // Update Literal
+            Logger.I("Update literal");
             ProgressBar.SetMax(stringLiterals.Count);
             writer.BaseStream.Position = stringLiteralOffset;
             uint count = 0;
@@ -93,22 +94,22 @@ namespace MetaDataStringEditor {
                 ProgressBar.Report();
             }
 
-            // 进行一次对齐，不确定是否一定需要，但是Unity是做了，所以还是补上为好
+            // Perform an alignment, not sure if it's necessarily needed, but Unity does it, so it's better to make up for it
             var tmp = (stringLiteralDataOffset + count) % 4;
             if (tmp != 0) count += 4 - tmp;
 
-            // 检查是否够空间放置
+            // Check if there is enough space for
             if (count > stringLiteralDataCount) {
-                // 检查数据区后面还有没有别的数据，没有就可以直接延长数据区
+                // Check if there is any other data behind the data area, if not, you can extend the data area directly.
                 if (stringLiteralDataOffset + stringLiteralDataCount < writer.BaseStream.Length) {
-                    // 原有空间不够放，也不能直接延长，所以整体挪到文件尾
+                    // The original space was not enough to put it in, and it could not be extended directly, so the whole thing was moved to the end of the document
                     stringLiteralDataOffset = (uint)writer.BaseStream.Length;
                 }
             }
             stringLiteralDataCount = count;
 
-            // 写入string
-            Logger.I("更新String");
+            // Write String
+            Logger.I("Update string");
             ProgressBar.SetMax(strBytes.Count);
             writer.BaseStream.Position = stringLiteralDataOffset;
             for (int i = 0; i < strBytes.Count; i++) {
@@ -116,13 +117,13 @@ namespace MetaDataStringEditor {
                 ProgressBar.Report();
             }
 
-            // 更新头部
-            Logger.I("更新头部");
+            // Update Header
+            Logger.I("Update header");
             writer.BaseStream.Position = DataInfoPosition;
             writer.Write(stringLiteralDataOffset);
             writer.Write(stringLiteralDataCount);
 
-            Logger.I("更新完成");
+            Logger.I("Update complete");
             writer.Close();
         }
         
@@ -134,5 +135,31 @@ namespace MetaDataStringEditor {
             public uint Length;
             public uint Offset;
         }
+
+        public void ExportToText(string fileName)
+        {
+            using (StreamWriter writer = new StreamWriter(fileName, false, Encoding.UTF8))
+            {
+                foreach (var byteArray in strBytes)
+                {
+                    string str = Encoding.UTF8.GetString(byteArray);
+                    writer.WriteLine(str);
+                }
+            }
+        }
+
+        public void ExportToCSV(string fileName)
+        {
+            using (StreamWriter writer = new StreamWriter(fileName, false, Encoding.UTF8))
+            {
+                foreach (var byteArray in strBytes)
+                {
+                    string str = Encoding.UTF8.GetString(byteArray);
+                    // Escape processing as needed to match CSV format
+                    writer.WriteLine($"\"{str.Replace("\"", "\"\"")}\"");
+                }
+            }
+        }
     }
+
 }

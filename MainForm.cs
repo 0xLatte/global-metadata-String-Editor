@@ -54,10 +54,10 @@ namespace MetaDataStringEditor {
         private MetadataFile file;
         private EditForm editForm = new EditForm();
 
-        // 菜单栏
-        private void 加载ToolStripMenuItem_Click(object sender, EventArgs e) {
+        // Menu Bar
+        private void LoadToolStripMenuItem_Click(object sender, EventArgs e) {
             if (status == FormStatus.Loading || status == FormStatus.Saving) {
-                Logger.E("后台操作进行中");
+                Logger.E("Background operation in progress");
                 return;
             }
 
@@ -70,7 +70,7 @@ namespace MetaDataStringEditor {
                         Invoke(new Action(delegate { Text = openFileDialog1.FileName; }));
                         Invoke(new Action(RefreshListView));
                         status = FormStatus.Editing;
-                        Logger.I("加载完成");
+                        Logger.I("Loading complete");
                     } catch (Exception ex) {
                         Logger.E(ex.ToString());
                         file?.Dispose();
@@ -82,7 +82,7 @@ namespace MetaDataStringEditor {
         }
 
         private void RefreshListView() {
-            Logger.I("刷新列表");
+            Logger.I("Refresh list");
 
             listView1.BeginUpdate();
             for (int i = 0; i < file.strBytes.Count; i++) {
@@ -94,9 +94,9 @@ namespace MetaDataStringEditor {
             listView1.EndUpdate();
         }
 
-        private void 另存为ToolStripMenuItem_Click(object sender, EventArgs e) {
+        private void SaveAsToolStripMenuItem_Click(object sender, EventArgs e) {
             if (status != FormStatus.Editing) {
-                Logger.E("状态错误");
+                Logger.E("Status error");
                 return;
             }
 
@@ -110,12 +110,41 @@ namespace MetaDataStringEditor {
             }
         }
 
-        private void 关闭文件ToolStripMenuItem_Click(object sender, EventArgs e) {
+        private void SaveAsTextToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (file != null)
+            {
+                SaveFileDialog saveFileDialog = new SaveFileDialog();
+                saveFileDialog.Filter = "Text Files (*.txt)|*.txt";
+                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    file.ExportToText(saveFileDialog.FileName);
+                    MessageBox.Show("Saved as textfile");
+                }
+            }
+        }
+
+        private void SaveAsCSVToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (file != null)
+            {
+                SaveFileDialog saveFileDialog = new SaveFileDialog();
+                saveFileDialog.Filter = "CSV Files (*.csv)|*.csv";
+                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    file.ExportToCSV(saveFileDialog.FileName);
+                    MessageBox.Show("Saved as CSV file");
+                }
+            }
+        }
+
+
+        private void CloseFileToolStripMenuItem_Click(object sender, EventArgs e) {
             ClearForm();
             status = FormStatus.Waiting;
         }
         
-        // 搜索
+        // Search
         private void button1_Click(object sender, EventArgs e) {
             if (textBox1.Text.Length > 0)
                 SearchToNext();
@@ -138,10 +167,10 @@ namespace MetaDataStringEditor {
                 }
 
             }
-            Logger.I("找不到搜索字符串");
+            Logger.I("Search string not found");
         }
 
-        // 修改
+        // Modify
 
         private void ListView1_MouseClick(object sender, MouseEventArgs e)
         {
@@ -159,7 +188,7 @@ namespace MetaDataStringEditor {
         }
 
 
-        private void 编辑ToolStripMenuItem_Click(object sender, EventArgs e)
+        private void EditToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var item = listView1.SelectedItems[0] as EditorListItem;
             startEditor(item);
@@ -174,12 +203,12 @@ namespace MetaDataStringEditor {
                 file.strBytes[(int)item.Tag] = item.OriginStrBytes;
         }
 
-        // 通用
+        // Common
         private void ClearForm() {
             listView1.Items.Clear();
             file?.Dispose();
             file = null;
-            Text = "MetadataStringEditor";
+            Text = "global-metadata String Editor";
         }
 
         private enum FormStatus { Waiting, Loading, Saving, Editing }
@@ -193,9 +222,9 @@ namespace MetaDataStringEditor {
             LogAction($"[{level}] {msg}");
         }
 
-        public static void D(string msg) { Log("debug", msg); }
-        public static void I(string msg) { Log("info", msg); }
-        public static void E(string msg) { Log("error", msg); }
+        public static void D(string msg) { Log("Debug", msg); }
+        public static void I(string msg) { Log("Info", msg); }
+        public static void E(string msg) { Log("Error", msg); }
     }
 
     public static class ProgressBar {
